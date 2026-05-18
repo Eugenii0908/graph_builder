@@ -2,6 +2,18 @@
 
 #include <QtWidgets/QMainWindow>
 #include "ui_graph_builder.h"
+#include <QGraphicsScene>
+#include <QGraphicsEllipseItem>
+#include <QGraphicsTextItem>
+#include <QBrush>
+#include <QPen>
+#include <QMouseEvent>
+#include <QtMath>
+#include "graph_struct.h"
+#include <QInputDialog>
+#include <QMessageBox>
+
+enum Mode { SelectLink, DeleteNode, DeleteLink, SearchTrip, SearchEdge, Move };
 
 class graph_builder : public QMainWindow {
     Q_OBJECT
@@ -25,17 +37,19 @@ private slots:
 
 private:
     Ui::graph_builderClass ui;
+    Graph graph;
     // Обработка мыши
     bool eventFilter(QObject* obj, QEvent* event) override;
     // Выбранные узлы для создания связи
     QGraphicsEllipseItem* selectedNode1;
     QGraphicsEllipseItem* selectedNode2;
     // Режимы
-    bool isSelectingLink;
+    Mode mode;
+  /*  bool isSelectingLink;
     bool isDeletingNode;
     bool isDeletingLink;
     bool isSearchingTrip;
-    bool isSearchingEdges;
+    bool isSearchingEdges;*/
     // Функции операций над графами
     void chooseNodes(QMouseEvent* mouseEvent, std::function<void(QGraphicsEllipseItem* from, QGraphicsEllipseItem* to)>fun);
     void deleteNodeMode(QMouseEvent* mouseEvent);

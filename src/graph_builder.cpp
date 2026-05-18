@@ -1,27 +1,13 @@
 #include "graph_builder.h"
-#include <QGraphicsScene>
-#include <QGraphicsEllipseItem>
-#include <QGraphicsTextItem>
-#include <QBrush>
-#include <QPen>
-#include <QMouseEvent>
-#include <QtMath>
-#include "graph_struct.h"
-#include <QInputDialog>
-#include <QMessageBox>
 
 graph_builder::graph_builder(QWidget* parent)
     : QMainWindow(parent)
     // Инициализируем указатели на выбранные узлы как nullptr (ничего не выбрано)
     , selectedNode1(nullptr)
     , selectedNode2(nullptr)
-    , isSelectingLink(false)
-    , isDeletingNode(false)
-    , isDeletingLink(false)
-    , isSearchingTrip(false)
-    , isSearchingEdges(false)
     , isFormatted(false)
 {
+    mode = Move;
     ui.setupUi(this);
     // Создаём новую графическую сцену, родитель - это окно
     QGraphicsScene* scene = new QGraphicsScene(this);
@@ -47,7 +33,7 @@ graph_builder::graph_builder(QWidget* parent)
 
 graph_builder::~graph_builder()
 {
-    clear_graph();
+    graph.clear_graph();
 }
 
 /////////////////////////////////
@@ -57,11 +43,7 @@ graph_builder::~graph_builder()
 void graph_builder::onNodeClicked()
 {
     // Выходим из режима создания связи (если были в нём)
-    isSelectingLink = false;
-    isDeletingNode = false;
-    isDeletingLink = false;
-    isSearchingTrip = false;
-    isSearchingEdges = false;
+    mode = Move;
     if (selectedNode1 != nullptr) {
         selectedNode1->setBrush(QBrush(Qt::white));
         selectedNode1 = nullptr;
@@ -77,7 +59,7 @@ void graph_builder::onNodeClicked()
     // Получаем указатель на сцену из GraphicsView
     QGraphicsScene* scene = ui.graphicsView->scene();
 
-    int newId = add_node();
+    int newId = graph.add_node();
 
     // Создание круга
     QGraphicsEllipseItem* circle = new QGraphicsEllipseItem(-20, -20, 40, 40);
@@ -111,19 +93,15 @@ void graph_builder::onNodeClicked()
 // Функция кнопки включения режима перемещения
 void graph_builder::onMoveNodeClicked() {
     // Входим в режим перемещения (то есть никакой режим)
-    if (selectedNode1 != nullptr && isSearchingTrip != true) {
+    if (selectedNode1 != nullptr && mode != SearchTrip) {
         selectedNode1->setBrush(QBrush(Qt::white));
         selectedNode1 = nullptr;
     }
-    if (selectedNode2 != nullptr && isSearchingTrip != true) {
+    if (selectedNode2 != nullptr && mode != SearchTrip) {
         selectedNode2->setBrush(QBrush(Qt::white));
         selectedNode2 = nullptr;
     }
-    isSelectingLink = false;
-    isDeletingNode = false;
-    isDeletingLink = false;
-    isSearchingTrip = false;
-    isSearchingEdges = false;
+    mode = Move;
 
     ui.MoveNode->setChecked(true);
     ui.Link->setChecked(false);
@@ -133,11 +111,7 @@ void graph_builder::onMoveNodeClicked() {
 // Функция кнопки включения режима создания связи
 void graph_builder::onLinkClicked()
 {
-    isSelectingLink = true;
-    isDeletingNode = false;
-    isDeletingLink = false;
-    isSearchingTrip = false;
-    isSearchingEdges = false;
+    mode = SelectLink;
     if (selectedNode1 != nullptr) {
         selectedNode1->setBrush(QBrush(Qt::white));
         selectedNode1 = nullptr;
@@ -155,11 +129,7 @@ void graph_builder::onLinkClicked()
 void graph_builder::onDeleteNodeClicked()
 {
     // Включаем только режим удаления узла
-    isDeletingNode = true;
-    isSelectingLink = false;
-    isDeletingLink = false;
-    isSearchingTrip = false;
-    isSearchingEdges = false;
+    mode = DeleteNode;
     if (selectedNode1 != nullptr) {
         selectedNode1->setBrush(QBrush(Qt::white));
         selectedNode1 = nullptr;
@@ -176,11 +146,7 @@ void graph_builder::onDeleteNodeClicked()
 // Функция кнопки включения режима удаления связи
 void graph_builder::onDeleteLinkClicked()
 {
-    isDeletingLink = true;
-    isSelectingLink = false;
-    isDeletingNode = false;
-    isSearchingTrip = false;
-    isSearchingEdges = false;
+    mode = DeleteLink;
     if (selectedNode1 != nullptr) {
         selectedNode1->setBrush(QBrush(Qt::white));
         selectedNode1 = nullptr;
@@ -198,7 +164,7 @@ void graph_builder::onDeleteLinkClicked()
 void graph_builder::onClearAllClicked() {
 
     // Очищаем структуру
-    clear_graph();
+    graph.clear_graph();
 
     // Очищаем графическую сцену
     QGraphicsScene* scene = ui.graphicsView->scene();
@@ -213,10 +179,7 @@ void graph_builder::onClearAllClicked() {
     // Сбрасываем переменные состояния
     selectedNode1 = nullptr;
     selectedNode2 = nullptr;
-    isSelectingLink = false;
-    isDeletingNode = false;
-    isDeletingLink = false;
-    isSearchingTrip = false;
+    mode = Move;
 
     onMoveNodeClicked();
 
@@ -258,20 +221,15 @@ void graph_builder::onClearFormatClicked() {
 
 // Функция кнопки поиска кратчайшего пути
 void graph_builder::onMinTripClicked() {
-    isSelectingLink = false;
-    isDeletingNode = false;
-    isDeletingLink = false;
-    isSearchingTrip = true;
-    isSearchingEdges = false;
+    mode = SearchTrip;
     graph_builder::onClearFormatClicked();
-
     statusBar()->showMessage(QString::fromLocal8Bit("Режим поиска кратчайшего пути: выберите начальный узел"));
 }
 
 // Функция кнопки поиска наименьшего количества ребер
 void graph_builder::onMinNumEdgeClicked() {
     graph_builder::onMinTripClicked();
-    isSearchingEdges = true;
+    mode = SearchEdge;
 }
 
 /////////////////////////////////
@@ -289,13 +247,9 @@ bool graph_builder::eventFilter(QObject* obj, QEvent* event) {
             QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
 
             // Правая кнопка - отмена текущего режима
-            if ((mouseEvent->button() == Qt::RightButton) && (isSelectingLink || isDeletingNode || isDeletingLink || isSearchingTrip))
+            if ((mouseEvent->button() == Qt::RightButton) && (mode == SelectLink || mode == DeleteNode || mode == DeleteLink || mode == SearchTrip))
             {
-                isSelectingLink = false;
-                isDeletingNode = false;
-                isDeletingLink = false;
-                isSearchingTrip = false;
-                isSearchingEdges = false;
+                mode = Move;
 
                 // Проверяем, что указатели не nullptr, прежде чем менять цвет
                 if (selectedNode1 != nullptr) {
@@ -318,24 +272,24 @@ bool graph_builder::eventFilter(QObject* obj, QEvent* event) {
             // Левая кнопка - действия в зависимости от режима
             if (mouseEvent->button() == Qt::LeftButton)
             {
-                if (isSelectingLink) {
+                if (mode == SelectLink) {
                     chooseNodes(mouseEvent, [this](QGraphicsEllipseItem* from, QGraphicsEllipseItem* to) {
                         createLink(from, to);
                         });
                     return true;
                 }
 
-                if (isDeletingNode) {
+                if (mode == DeleteNode) {
                     deleteNodeMode(mouseEvent);
                     return true;
                 }
 
-                if (isDeletingLink) {
+                if (mode == DeleteLink) {
                     deleteLinkMode(mouseEvent);
                     return true;
                 }
 
-                if (isSearchingTrip) {
+                if (mode == SearchTrip || mode == SearchEdge) {
                     chooseNodes(mouseEvent, [this](QGraphicsEllipseItem* from, QGraphicsEllipseItem* to) {
                         searchTrip(from, to);
                         });
@@ -353,7 +307,7 @@ void graph_builder::createLink(QGraphicsEllipseItem* from, QGraphicsEllipseItem*
     int fromId = from->data(0).toInt();
     int toId = to->data(0).toInt();
 
-    int res = add_link(fromId, toId);
+    int res = graph.add_link(fromId, toId);
     switch (res) {
     case -2: {
         statusBar()->showMessage(QString::fromLocal8Bit("Ошибка: связь уже существует"));
@@ -374,7 +328,7 @@ void graph_builder::createLink(QGraphicsEllipseItem* from, QGraphicsEllipseItem*
         return;
     }
     }
-    remove_link(fromId, toId);
+    graph.remove_link(fromId, toId);
     // Запрашиваем вес у пользователя
     bool ok;
     int weight = QInputDialog::getInt(this,
@@ -392,7 +346,7 @@ void graph_builder::createLink(QGraphicsEllipseItem* from, QGraphicsEllipseItem*
     }
 
     // Добавляем связь в структуру
-    add_link(fromId, toId, weight);
+    graph.add_link(fromId, toId, weight);
 
     // Рисуем связь
     drawLink(from, to, weight);
@@ -557,7 +511,7 @@ void graph_builder::deleteNodeMode(QMouseEvent* mouseEvent) {
         int nodeId = nodeToDelete->data(0).toInt();
 
         // Удаляем из структуры
-        remove_node(nodeId);
+        graph.remove_node(nodeId);
 
         // Удаляем все линии и стрелки, связанные с узлом
         for (int i = linkPairs.size() - 1; i >= 0; i--) {
@@ -638,7 +592,7 @@ void graph_builder::deleteLinkMode(QMouseEvent* mouseEvent) {
             int toId = linkPairs[linkIndex].to->data(0).toInt();
 
             // Удаляем из структуры данных
-            remove_link(fromId, toId);
+            graph.remove_link(fromId, toId);
 
             // Удаляем линию
             if (linkIndex < lines.size()) {
@@ -726,7 +680,11 @@ void graph_builder::searchTrip(QGraphicsEllipseItem* from, QGraphicsEllipseItem*
     int toId = to->data(0).toInt();
 
     // Получаем путь
-    std::vector<int> path = getPathTrip(fromId, toId, !isSearchingEdges);
+    std::vector<int> path;
+    if (mode == SearchEdge)
+        path = graph.getPathTrip(fromId, toId, false);
+    else if (mode == SearchTrip)
+        path = graph.getPathTrip(fromId, toId, true);
     if (path.empty()) {
         statusBar()->showMessage(QString::fromLocal8Bit("Путь не найден"));
         QMessageBox::critical(this,
@@ -790,9 +748,9 @@ void graph_builder::searchTrip(QGraphicsEllipseItem* from, QGraphicsEllipseItem*
                         weightTexts[j]->setDefaultTextColor(Qt::red);  // Красный текст
                         weightTexts[j]->setFont(QFont("Arial", 10, QFont::Bold));  // Жирный шрифт
                     }
-                    if (isSearchingEdges)
+                    if (mode == SearchEdge)
                         sumWeight++;
-                    else
+                    else if(mode == SearchTrip)
                         sumWeight += linkPairs[j].weight;
                     break;
                 }
@@ -800,17 +758,16 @@ void graph_builder::searchTrip(QGraphicsEllipseItem* from, QGraphicsEllipseItem*
         }
     }
     graph_builder::isFormatted = true;
-    isSearchingTrip = false;
     ui.MoveNode->setChecked(true);
     updateButtonsState();
 
-    if (isSearchingEdges) {
+    if (mode == SearchEdge) {
         statusBar()->showMessage(QString::fromLocal8Bit("Наименьшее число рёбер найдено"));
         QMessageBox::information(this,
             QString::fromLocal8Bit("Наименьшее число рёбер найдено!"),
             QString::fromLocal8Bit("Количество рёбер составляет: %1").arg(sumWeight));
     }
-    else {
+    else if (mode == SearchTrip) {
         statusBar()->showMessage(QString::fromLocal8Bit("Кратчайший путь найден"));
         QMessageBox::information(this,
             QString::fromLocal8Bit("Кратчайший путь найден!"),
@@ -820,9 +777,10 @@ void graph_builder::searchTrip(QGraphicsEllipseItem* from, QGraphicsEllipseItem*
 
 // Функция обновления состояния кнопок
 void graph_builder::updateButtonsState() {
-    bool hasNodes = (nodes.size() > 0);
-    bool hasTwoNodes = (nodes.size() > 1);
-    bool hasLinks = (linkPairs.size() > 0);
+    bool hasNodes = (graph.get_node_count() > 0);
+    bool hasTwoNodes = (graph.get_node_count() > 1);
+    bool hasLinks = (graph.get_link_count() > 0);
+
 
     ui.DeleteNode->setEnabled(hasNodes);
     ui.Link->setEnabled(hasTwoNodes);

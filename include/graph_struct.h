@@ -1,40 +1,12 @@
 #pragma once
 
 #include <vector>
-#include <iostream>
 
-// Структура для хранения узлов
+// Структура для хранения связей
 struct Link {
-    int index;
-    int weight;
+    int index;  // Индекс узла назначения
+    int weight;  // Вес связи
 };
-
-// Структура для хранения информации об узле
-struct Node {
-    int id;
-    std::vector<Link> links; // индексы узлов, куда ведут ребра
-};
-
-// Глобальные переменные
-extern std::vector<Node> nodes; // список всех узлов
-
-// Добавление узла
-// Возвращает индекс узла
-int add_node();
-
-// Добавление связи от from к to
-// Возвращает true если успешно
-int add_link(int from, int to, int weight);
-int add_link(int from, int to);
-
-// Удаление узла и всех связанных с ним ребер
-bool remove_node(int node);
-
-// Удаление связи от from к to
-bool remove_link(int from, int to);
-
-// Очистка графа
-void clear_graph();
 
 // Структура для хранения ребра (для алгоритма Беллмана-Форда)
 struct Edge {
@@ -45,15 +17,49 @@ struct Edge {
 
 // Результат работы алгоритма Беллмана-Форда
 struct ShortTrip {
-    std::vector<int> distances; // расстояния от start до всех узлов
-    std::vector<int> previous; // предыдущие узлы на кратчайшем пути
+    std::vector<int> distances;  // расстояния от start до всех узлов
+    std::vector<int> previous;  // предыдущие узлы на кратчайшем пути
 };
 
-// Поиск кратчайшего пути
-ShortTrip searchShortTrip(int start_node, bool checkWeight);
+// Класс графа
+class Graph {
+private:
+    struct Node {
+        int id;
+        std::vector<Link> links;
+    };
 
-// Восстановление маршрута
-std::vector<int> getPathTrip(int start_node, int end_node, bool checkWeight);
+    std::vector<Edge> get_all_edges();
+    ShortTrip searchShortTrip(int start_node, bool checkWeight);
 
-// Получение всех ребер графа
-std::vector<Edge> get_all_edges();
+public:
+    std::vector<Node> nodes;
+    // Добавление узла
+    int add_node();
+
+    // Добавление связи
+    int add_link(int from, int to, int weight);
+    int add_link(int from, int to);
+
+    // Удаление
+    bool remove_node(int node);
+    bool remove_link(int from, int to);
+    void clear_graph();
+
+    // Поиск путей
+    std::vector<int> getPathTrip(int start_node, int end_node, bool checkWeight);
+
+
+    // Вспомогательные функции
+    int get_node_count() {
+        return nodes.size();
+    }
+
+    int get_link_count() const {
+        int count = 0;
+        for (const auto& node : nodes) {
+            count += node.links.size();
+        }
+        return count;
+    }
+};

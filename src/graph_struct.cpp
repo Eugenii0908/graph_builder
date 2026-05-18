@@ -1,12 +1,9 @@
 ﻿#include "graph_struct.h"
 #include <algorithm>
 
-// Определение глобальных переменных
-std::vector<Node> nodes;
-
 // Добавление узла
 // Возвращает индекс узла
-int add_node() {
+int Graph::add_node() {
     Node newNode;
     // Ищем первый свободный ID
     int newId = 1;
@@ -35,7 +32,7 @@ int add_node() {
 
 // Добавление связи от from к to
 // Возвращает true если успешно
-int add_link(int from, int to, int weight) {
+int Graph::add_link(int from, int to, int weight) {
     int fromIndex = -1, toIndex = -1;
 
     // Находим индексы узлов
@@ -73,7 +70,7 @@ int add_link(int from, int to, int weight) {
 
 // Добавление связи от from к to
 // Возвращает true если успешно
-int add_link(int from, int to) {
+int Graph::add_link(int from, int to) {
     int fromIndex = -1, toIndex = -1;
 
     // Находим индексы узлов
@@ -110,7 +107,7 @@ int add_link(int from, int to) {
 }
 
 // Удаление узла и всех связанных с ним ребер
-bool remove_node(int node) {
+bool Graph::remove_node(int node) {
     int nodeIndex = -1;
 
     // Находим индекс узла
@@ -130,10 +127,9 @@ bool remove_node(int node) {
     for (int i = 0; i < nodes.size(); i++) {
         auto& link = nodes[i].links;
         // Проходим по всем связям и удаляем те, что ведут к nodeIndex
-        for (int j = 0; j < link.size(); j++) {
+        for (int j = link.size() - 1; j >= 0; j--) {
             if (link[j].index == nodeIndex) {
                 link.erase(link.begin() + j);
-                j--; // Уменьшаем счетчик, так как элементы сдвинулись
             }
         }
     }
@@ -154,7 +150,7 @@ bool remove_node(int node) {
 }
 
 // Алгоритм поиска
-bool remove_link(int from, int to) {
+bool Graph::remove_link(int from, int to) {
     int fromIndex = -1, toIndex = -1;
 
     // Находим индексы узлов
@@ -180,12 +176,12 @@ bool remove_link(int from, int to) {
 }
 
 // Очистка графа
-void clear_graph() {
+void Graph::clear_graph() {
     nodes.clear();
 }
 
 // Поиск кратчайшего пути
-ShortTrip searchShortTrip(int start_node, bool checkWeight) {
+ShortTrip Graph::searchShortTrip(int start_node, bool checkWeight) {
     ShortTrip result;
 
     // Находим индекс стартового узла
@@ -235,7 +231,7 @@ ShortTrip searchShortTrip(int start_node, bool checkWeight) {
 }
 
 // Получение всех ребер графа
-std::vector<Edge> get_all_edges() {
+std::vector<Edge> Graph::get_all_edges() {
     std::vector<Edge> all_edges;
 
     for (int i = 0; i < nodes.size(); i++) {
@@ -252,7 +248,7 @@ std::vector<Edge> get_all_edges() {
 }
 
 // Восстановление маршрута
-std::vector<int> getPathTrip(int start_node, int end_node, bool checkWeight) {
+std::vector<int> Graph::getPathTrip(int start_node, int end_node, bool checkWeight) {
     std::vector<int> path;
 
     ShortTrip result = searchShortTrip(start_node, checkWeight);
